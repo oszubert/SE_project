@@ -13,14 +13,6 @@ vector<vector<int>>level={          // Definicja mapy
 
 sf::Clock gameClock; // Zegar gry (aby gra nie
 
-/*
-bool isColliding(float posX, float posY){ // Sprawdzanie kolizji
-    int tileX=static_cast<int>(posX/blockSize);
-    int tileY=static_cast<int>(posY/blockSize);
-    return (tileX<0 || tileX>=mapWidth || tileY<0 || tileY>=mapHeight || map[tileY][tileX]==1);
-}
-*/
-
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow) { // Funkcja main bez uruchamiania konsoli
 
     sf::RenderWindow window(sf::VideoMode(windowWidth, windowHeight), "Render Engine Project"); // Definicja okna

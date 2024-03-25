@@ -1,7 +1,7 @@
 #ifndef klasy
 #define klasy
 
-#define _USE_MATH_DEFINES
+//#define _USE_MATH_DEFINES
 
 #include <SFML/Graphics.hpp>
 #include <SFML/System.hpp>
@@ -12,10 +12,10 @@
 #include <vector>
 
 #include <windows.h>
-#include <cstddef>
 
 using namespace std;
 
+const float M_PI = 3.14159265358979323846;
 
 const int windowWidth=800; // Szerokosc okna programu
 const int windowHeight=600; // Wysokosc okna programu
@@ -46,8 +46,8 @@ public:
 
         for(unsigned int y=0; y<level.size(); y++){
             for(unsigned int x=0; x<level[y].size(); x++){
-                if(level[y][x]==0) block.setFillColor(sf::Color(68, 34, 32));
-                else if(level[y][x]==1) block.setFillColor(sf::Color(46, 0, 20));
+                if(level[y][x]==0) block.setFillColor(sf::Color(11, 32, 39));
+                else if(level[y][x]==1) block.setFillColor(sf::Color(64, 121, 140));
 
                 block.setPosition(sf::Vector2f(x, y)*blockSize+sf::Vector2f(blockSize*0.025f, blockSize*0.025f));
                 target.draw(block);
@@ -126,7 +126,7 @@ public:
         }
     }
 
-    bool checkCollision(const sf::Vector2f& newPos, const Map& map) const {
+    bool checkCollision(const sf::Vector2f& newPos, const Map& map) const{
         int gridX=static_cast<int>((newPos.x+playerSize)/map.getBlockSize());
         int gridY=static_cast<int>((newPos.y+playerSize)/map.getBlockSize());
 
