@@ -1,17 +1,8 @@
-#include <SFML/Graphics.hpp>
-#include <math.h>
-#include <windows.h>
+#include "classes.h"
 
-const int windowWidth=800; // Szerokosc okna programu
-const int windowHeight=600; // Wysokosc okna programu
-const int mapWidth=10; // Szerokosc mapy
-const int mapHeight=10; // Wysokosc mapy
-const int blockSize=50; // Rozmiar bloku/sciany
-const float playerSize=5.0f; // Rozmiar gracza
-
-int map[mapWidth][mapHeight]={ // Definicja mapy
+vector<vector<int>>level={          // Definicja mapy
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-    {1, 0, 0, 0, 0, 0, 0, 0, 0, 1}, 
+    {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 0, 1, 0, 0, 0, 0, 1, 0, 1},
     {1, 0, 0, 0, 0, 0, 0, 0, 0, 1},
     {1, 0, 1, 0, 0, 0, 0, 1, 0, 1},
@@ -20,92 +11,51 @@ int map[mapWidth][mapHeight]={ // Definicja mapy
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 };
 
-class Player{ // Definicja obiektu gracza
-public:
-    float x;
-    float y;
+sf::Clock gameClock; // Zegar gry (aby gra nie
 
-    Player(float startX, float startY) : x(startX), y(startY) {}
-
-    void move(float offsetX, float offsetY){
-        x+=offsetX;
-        y+=offsetY;
-    }
-};
-
-bool isColliding(float x, float y){ // Sprawdzanie kolizji
-    int tileX=static_cast<int>(x/blockSize);
-    int tileY=static_cast<int>(y/blockSize);
+/*
+bool isColliding(float posX, float posY){ // Sprawdzanie kolizji
+    int tileX=static_cast<int>(posX/blockSize);
+    int tileY=static_cast<int>(posY/blockSize);
     return (tileX<0 || tileX>=mapWidth || tileY<0 || tileY>=mapHeight || map[tileY][tileX]==1);
 }
+*/
 
-int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow) { // Funkcja main bez uruchamiania konsoli 
+int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow) { // Funkcja main bez uruchamiania konsoli
+
     sf::RenderWindow window(sf::VideoMode(windowWidth, windowHeight), "Render Engine Project"); // Definicja okna
 
-    sf::Image icon;
-    icon.loadFromFile("icon.png");
-    window.setIcon(64, 64, icon.getPixelsPtr());
+    window.setFramerateLimit(60); // Limit klatek ustawiony na 60
 
-    Player player(75, 75); // Pozycja spawnu gracza (srodek drugdiego bloku)
+
+    sf::Image icon; // } Ikona programu
+    icon.loadFromFile("icon.png"); // }
+    window.setIcon(64, 64, icon.getPixelsPtr());  // }
+
+
+    Map map(48.0f, level); // Zadeklarowanie mapy
+    Player player(75, 75); // Zadeklarowanie gracza, ustawienie startowej pozycji na 50,50
 
     while(window.isOpen()){ // Gra
         sf::Event event;
+
+        float gameTime=gameClock.restart().asSeconds(); // Zegar gry
+
+
         while(window.pollEvent(event)){ // Zamkniecie gry przy zamknieciu okna
             if(event.type==sf::Event::Closed)
                 window.close();
+            if((event.type==sf::Event::KeyPressed) && (event.key.code==sf::Keyboard::Escape))
+                window.close();
         }
 
-        float moveX=0, moveY=0;
-
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
-            moveY-=0.25; // Ruch w gore
-        }
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){
-            moveY+=0.25; // Ruch w dol
-        }
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)){
-            moveX-=0.25; // Ruch w lewo
-        }
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)){
-            moveX+=0.25; // Ruch w prawo
-        }
-
-        // Sprawdzanie kolizji po osi X
-        float newX=player.x+moveX;
-        if(!isColliding(newX-playerSize, player.y-playerSize) &&
-            !isColliding(newX+playerSize, player.y-playerSize) &&
-            !isColliding(newX-playerSize, player.y+playerSize) &&
-            !isColliding(newX+playerSize, player.y+playerSize)) {
-            player.x=newX;
-        }
-
-        // Sprawdzanie kolizji po osi Y
-        float newY=player.y+moveY;
-        if(!isColliding(player.x-playerSize, newY-playerSize) &&
-            !isColliding(player.x+playerSize, newY-playerSize) &&
-            !isColliding(player.x-playerSize, newY+playerSize) &&
-            !isColliding(player.x+playerSize, newY+playerSize)) {
-            player.y=newY;
-        }
+        player.update(gameTime, map);
+//        player.update(gameTime);
 
         window.clear();
+        map.draw(window);
 
-        // Rysowanie scian
-        for(int i=0; i<mapWidth; ++i){
-            for(int j=0; j<mapHeight; ++j){
-                sf::RectangleShape rect;
-                rect.setSize(sf::Vector2f(blockSize, blockSize));
-                rect.setPosition(i*blockSize, j*blockSize);
-                rect.setFillColor(map[j][i] == 1 ? sf::Color::White : sf::Color::Black);
-                window.draw(rect);
-            }
-        }
-
-        // Rysowanie gracza jako blekitny okrag
-        sf::CircleShape playerShape(playerSize);
-        playerShape.setFillColor(sf::Color::Cyan);
-        playerShape.setPosition(player.x-playerSize, player.y-playerSize);
-        window.draw(playerShape);
+        player.draw(window);
 
         window.display();
     }
