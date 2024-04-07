@@ -23,6 +23,9 @@ const int mapWidth=10; // Szerokosc mapy
 const int mapHeight=10; // Wysokosc mapy
 const int blockSize=50; // Rozmiar bloku/sciany
 
+const float playerFOV=60.0f; // Pole widzenia gracza
+const unsigned int maxRayDepth=16; // Maksymalna glebokosc promienia
+
 const float playerSize=8.0f; // Rozmiar gracza
 const float moveSpeed=50.0f; // Predkosc ruchu gracza
 const float rotSpeed=100.0f; // Predkosc obrotu gracza
@@ -55,10 +58,14 @@ public:
         }
     }
 
-    float getBlockSize() const { return blockSize; }
-    const std::vector<std::vector<int>>& getLevel() const { return level; }
+    float getBlockSize() const {return blockSize;}
+    const vector<vector<int>>& getLevel() const {return level;}
+
+
 
 };
+
+
 
 class Player{ // Definicja klasy gracza
 public:
@@ -76,6 +83,7 @@ public:
         playerShape.setTextureRect(sf::IntRect(0, 0, 16, 16));
 
 /*
+        // Nieuzywana linia wskazujaca obrot postaci (zastapiona przez obracajaca sie teksture postaci)
         sf::RectangleShape line(sf::Vector2f(24.0f, 2.0f));
         line.setPosition(pos);
         line.setRotation(angle);
@@ -152,6 +160,110 @@ public:
     sf::Texture tex;
 };
 
+
+
+struct Ray{
+    sf::Vector2f drawPos;
+    float dist;
+    bool drawn;
+};
+
+static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){
+	float angle=angleDeg*M_PI/180.0f;
+	float vert_tan=-tan(angle), htan=-1.0f/tan(angle);
+	float blockSize=map.getBlockSize();
+
+	bool drawn=false;
+	size_t vert_dof=0, hor_dof=0;
+	float vert_dist=numeric_limits<float>::max();
+	float hor_dist=numeric_limits<float>::max();
+//	float vert_dist=FLOAT_MAX;
+//	float hor_dist=FLOAT_MAX;
+
+	sf::Vector2f vert_rayPos, hor_rayPos, offset;
+	if (cos(angle)>0.001f){
+		vert_rayPos.x=floor(start.x/blockSize)*blockSize+blockSize;
+		vert_rayPos.y=(start.x-vert_rayPos.x)*vert_tan+start.y;
+
+		offset.x=blockSize;
+		offset.y=-offset.x*vert_tan;
+	}
+	else if (cos(angle)<-0.001f){
+		vert_rayPos.x=floor(start.x/blockSize)*blockSize-0.01f;
+		vert_rayPos.y=(start.x-vert_rayPos.x)*vert_tan+start.y;
+
+		offset.x=-blockSize;
+		offset.y=-offset.x*vert_tan;
+	}
+	else{
+		vert_dof=maxRayDepth;
+	}
+
+	const auto &level=map.getLevel();
+
+	for (; vert_dof<maxRayDepth; vert_dof++){
+		int mapX=(int)(vert_rayPos.x/blockSize);
+		int mapY=(int)(vert_rayPos.y/blockSize);
+
+		if (mapY<level.size() && mapX<level[mapY].size() && level[mapY][mapX]){
+			drawn=true;
+			vert_dist=sqrt((vert_rayPos.x-start.x)*(vert_rayPos.x-start.x)+(vert_rayPos.y-start.y)*(vert_rayPos.y-start.y));
+			break;
+		}
+
+		vert_rayPos+=offset;
+	}
+
+	if(sin(angle)>0.001f){
+		hor_rayPos.y=floor(start.y/blockSize)*blockSize+blockSize;
+		hor_rayPos.x=(start.y-hor_rayPos.y)*htan+start.x;
+
+		offset.y=blockSize;
+		offset.x=-offset.y*htan;
+	}
+	else if (sin(angle)<-0.001f){
+		hor_rayPos.y=floor(start.y/blockSize)*blockSize-0.01f;
+		hor_rayPos.x=(start.y-hor_rayPos.y)*htan+start.x;
+
+		offset.y=-blockSize;
+		offset.x=-offset.y*htan;
+	}
+	else{
+		hor_dof=maxRayDepth;
+	}
+
+	for (; hor_dof<maxRayDepth; hor_dof++){
+		int mapX=(int)(hor_rayPos.x/blockSize);
+		int mapY=(int)(hor_rayPos.y/blockSize);
+
+		if (mapY<level.size() && mapX<level[mapY].size() && level[mapY][mapX]){
+			drawn=true;
+			hor_dist=sqrt((hor_rayPos.x-start.x)*(hor_rayPos.x-start.x)+(hor_rayPos.y-start.y)*(hor_rayPos.y-start.y));
+			break;
+		}
+
+		hor_rayPos+=offset;
+	}
+
+	return Ray{hor_dist<vert_dist ? hor_rayPos : vert_rayPos, min(hor_dist, vert_dist), drawn};
+
+}
+
+class RayRender{
+public:
+    void drawRays(sf::RenderTarget &target, const Player &player, const Map &map){
+        for(float angle=player.angle-playerFOV/2.0f; angle < player.angle+playerFOV; angle+=0.5f){
+            Ray ray=rayCast(player.pos, angle, map);
+
+            if(ray.drawn){
+                sf::Vertex line[]={sf::Vertex(player.pos), sf::Vertex(ray.drawPos),};
+                line[0].color=sf::Color::Cyan;
+                line[1].color=sf::Color::Cyan;
+                target.draw(line, 2, sf::Lines);
+            }
+        }
+    }
+};
 
 
 #endif // klasy

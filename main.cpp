@@ -27,6 +27,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
     Map map(48.0f, level); // Zadeklarowanie mapy
     Player player(75, 75); // Zadeklarowanie gracza, ustawienie startowej pozycji na 50,50
+    RayRender rayrender; //
 
     while(window.isOpen()){ // Gra
         sf::Event event;
@@ -46,6 +47,8 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
         window.clear();
         map.draw(window);
+
+        rayrender.drawRays(window, player, map);
 
         player.draw(window);
 
