@@ -15,7 +15,7 @@
 
 using namespace std;
 
-const float M_PI = 3.14159265358979323846;
+//const float M_PI = 3.14159265358979323846;
 
 const int windowWidth=800; // Szerokosc okna programu
 const int windowHeight=600; // Wysokosc okna programu
@@ -170,7 +170,7 @@ struct Ray{
 
 static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){
 	float angle=angleDeg*M_PI/180.0f;
-	float vert_tan=-tan(angle), htan=-1.0f/tan(angle);
+	float vert_tan=-tan(angle), hor_tan=-1.0f/tan(angle);
 	float blockSize=map.getBlockSize();
 
 	bool drawn=false;
@@ -216,17 +216,17 @@ static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){
 
 	if(sin(angle)>0.001f){
 		hor_rayPos.y=floor(start.y/blockSize)*blockSize+blockSize;
-		hor_rayPos.x=(start.y-hor_rayPos.y)*htan+start.x;
+		hor_rayPos.x=(start.y-hor_rayPos.y)*hor_tan+start.x;
 
 		offset.y=blockSize;
-		offset.x=-offset.y*htan;
+		offset.x=-offset.y*hor_tan;
 	}
 	else if (sin(angle)<-0.001f){
 		hor_rayPos.y=floor(start.y/blockSize)*blockSize-0.01f;
-		hor_rayPos.x=(start.y-hor_rayPos.y)*htan+start.x;
+		hor_rayPos.x=(start.y-hor_rayPos.y)*hor_tan+start.x;
 
 		offset.y=-blockSize;
-		offset.x=-offset.y*htan;
+		offset.x=-offset.y*hor_tan;
 	}
 	else{
 		hor_dof=maxRayDepth;
@@ -252,7 +252,7 @@ static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){
 class RayRender{
 public:
     void drawRays(sf::RenderTarget &target, const Player &player, const Map &map){
-        for(float angle=player.angle-playerFOV/2.0f; angle < player.angle+playerFOV; angle+=0.5f){
+        for(float angle=player.angle-playerFOV/2.0f; angle<player.angle+playerFOV; angle+=0.5f){
             Ray ray=rayCast(player.pos, angle, map);
 
             if(ray.drawn){
