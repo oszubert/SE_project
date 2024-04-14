@@ -27,7 +27,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
     Map map(48.0f, level); // Zadeklarowanie mapy
     Player player(75, 75); // Zadeklarowanie gracza, ustawienie startowej pozycji na 50,50
-    RayRender rayrender; //
+    RayRender rayrender; // Zadeklarowanie rzutowania cieni
 
     while(window.isOpen()){ // Gra
         sf::Event event;
@@ -35,24 +35,26 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
         float gameTime=gameClock.restart().asSeconds(); // Zegar gry
 
 
-        while(window.pollEvent(event)){ // Zamkniecie gry przy zamknieciu okna
-            if(event.type==sf::Event::Closed)
+        while(window.pollEvent(event)){
+            if(event.type==sf::Event::Closed) // Zamkniecie gry przy zamknieciu okna
                 window.close();
-            if((event.type==sf::Event::KeyPressed) && (event.key.code==sf::Keyboard::Escape))
+            if((event.type==sf::Event::KeyPressed) && (event.key.code==sf::Keyboard::Escape)) // Zamkniecie gry przy wcisnieciu Escape
                 window.close();
         }
 
-        player.update(gameTime, map);
+        player.update(gameTime, map); // Aktualizacja pozycji gracza
+
 //        player.update(gameTime);
 
         window.clear();
-        map.draw(window);
 
-        rayrender.drawRays(window, player, map);
+//        map.draw(window);
+//        rayrender.drawRays(window, player, map);
+//        player.draw(window);
 
-        player.draw(window);
+        rayrender.render3D(window, player, map); // Rysowanie w perspektywie 3D
 
-        window.display();
+        window.display(); // Wyswietlenie obrazu
     }
 
     return 0;

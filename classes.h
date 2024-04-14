@@ -15,20 +15,23 @@
 
 using namespace std;
 
-//const float M_PI = 3.14159265358979323846;
+//const float M_PI=3.14159265358979323846;
 
-const int windowWidth=800; // Szerokosc okna programu
-const int windowHeight=600; // Wysokosc okna programu
-const int mapWidth=10; // Szerokosc mapy
-const int mapHeight=10; // Wysokosc mapy
-const int blockSize=50; // Rozmiar bloku/sciany
+const float windowWidth=1152.0f; // Szerokosc okna programu
+const float windowHeight=864.0f; // Wysokosc okna programu
+//const int mapWidth=10; // Szerokosc mapy
+//const int mapHeight=10; // Wysokosc mapy
+//const int blockSize=50; // Rozmiar bloku/sciany
 
-const float playerFOV=60.0f; // Pole widzenia gracza
+const float playerFOV=65.0f; // Pole widzenia gracza
 const unsigned int maxRayDepth=16; // Maksymalna glebokosc promienia
+const unsigned int rayCount=600; // Zmienna do pomocnicza do rzutowania
+const float columnWidth=windowWidth/(float)rayCount; // Zmienna pomocnicza do rzutowania
 
 const float playerSize=8.0f; // Rozmiar gracza
 const float moveSpeed=50.0f; // Predkosc ruchu gracza
 const float rotSpeed=100.0f; // Predkosc obrotu gracza
+
 
 class Map{ // Definicja klasy mapy
 private:
@@ -42,15 +45,15 @@ public:
         if (level.empty()) return;
 
         sf::RectangleShape background(sf::Vector2f((float)level[0].size()*blockSize, (float)level.size()*blockSize));
-        background.setFillColor(sf::Color(15,15,15));
+        background.setFillColor(sf::Color(15,15,15)); // Kolor tla (rzutowanie 2D)
         target.draw(background);
 
         sf::RectangleShape block(sf::Vector2f(blockSize * 0.95f, blockSize * 0.95f));
 
         for(unsigned int y=0; y<level.size(); y++){
             for(unsigned int x=0; x<level[y].size(); x++){
-                if(level[y][x]==0) block.setFillColor(sf::Color(11, 32, 39));
-                else if(level[y][x]==1) block.setFillColor(sf::Color(64, 121, 140));
+                if(level[y][x]==0) block.setFillColor(sf::Color(11, 32, 39)); // Kolor podloza (rzutowanie 2D)
+                else if(level[y][x]==1) block.setFillColor(sf::Color(64, 121, 140)); // Kolor bloku (sciana, rzutowanie 2D)
 
                 block.setPosition(sf::Vector2f(x, y)*blockSize+sf::Vector2f(blockSize*0.025f, blockSize*0.025f));
                 target.draw(block);
@@ -60,9 +63,6 @@ public:
 
     float getBlockSize() const {return blockSize;}
     const vector<vector<int>>& getLevel() const {return level;}
-
-
-
 };
 
 
@@ -166,9 +166,10 @@ struct Ray{
     sf::Vector2f drawPos;
     float dist;
     bool drawn;
+    bool drawnVertical;
 };
 
-static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){
+static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){ // Rzucanie promieni
 	float angle=angleDeg*M_PI/180.0f;
 	float vert_tan=-tan(angle), hor_tan=-1.0f/tan(angle);
 	float blockSize=map.getBlockSize();
@@ -245,13 +246,13 @@ static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){
 		hor_rayPos+=offset;
 	}
 
-	return Ray{hor_dist<vert_dist ? hor_rayPos : vert_rayPos, min(hor_dist, vert_dist), drawn};
+	return Ray{hor_dist<vert_dist ? hor_rayPos : vert_rayPos, min(hor_dist, vert_dist), drawn, vert_dist <= hor_dist};
 
 }
 
 class RayRender{
 public:
-    void drawRays(sf::RenderTarget &target, const Player &player, const Map &map){
+    void drawRays(sf::RenderTarget &target, const Player &player, const Map &map){ // Rysowanie promieni
         for(float angle=player.angle-playerFOV/2.0f; angle<player.angle+playerFOV; angle+=0.5f){
             Ray ray=rayCast(player.pos, angle, map);
 
@@ -260,6 +261,45 @@ public:
                 line[0].color=sf::Color::Cyan;
                 line[1].color=sf::Color::Cyan;
                 target.draw(line, 2, sf::Lines);
+            }
+        }
+    }
+
+    void render3D(sf::RenderTarget &target, const Player &player, const Map &map){ // Rysowanie w 3D
+
+        sf::RectangleShape rectangle(sf::Vector2f(windowWidth, windowHeight/2.0f));
+        rectangle.setFillColor(sf::Color(81, 187, 254)); // Kolor skyboxa
+        target.draw(rectangle);
+
+        rectangle.setPosition(0.0f, windowHeight / 2.0f);
+        rectangle.setFillColor(sf::Color(14, 176, 92)); // Kolor ziemii
+        target.draw(rectangle);
+
+        float angle=player.angle-playerFOV/2.0f;
+        float angleMove=playerFOV/(float)rayCount;
+        const float maxRenderDist=maxRayDepth*map.getBlockSize();
+        const float maxFogDist=maxRenderDist/4.0f;
+        for (unsigned int i=0; i<rayCount; i++, angle+=angleMove){
+            Ray ray=rayCast(player.pos, angle, map);
+
+            if (ray.drawn){
+                ray.dist*=cos((player.angle-angle)*M_PI/180.0f);
+
+                float wallHeight=(map.getBlockSize()*windowHeight)/ray.dist;
+
+                if (wallHeight>windowHeight)wallHeight=windowHeight;
+
+                float brightness=1.0f-(ray.dist/maxRenderDist);
+                if (brightness<0.0f) brightness=0.0f;
+
+                float shade=(ray.drawnVertical ? 0.8f : 1.0f)*brightness;
+
+                float wallOffset=windowHeight/2.0f-wallHeight/2.0f;
+                sf::RectangleShape column(sf::Vector2f(columnWidth, wallHeight));
+                column.setPosition(i*columnWidth, wallOffset);
+
+                column.setFillColor(sf::Color(199*shade, 0*shade, 57*shade)); // Kolor scian
+                target.draw(column);
             }
         }
     }
