@@ -41,7 +41,7 @@ public:
     Map(float blockSize, int width, int height) : blockSize(blockSize), level(height, vector<int>(width, 0)) {}
     Map(float blockSize, vector<vector<int>> level) : blockSize(blockSize), level(level) {}
 
-    void draw(sf::RenderTarget &target){
+    void draw(sf::RenderTarget &target){ //Rysowanie mapy (2D, niewymagane w 3D)
         if (level.empty()) return;
 
         sf::RectangleShape background(sf::Vector2f((float)level[0].size()*blockSize, (float)level.size()*blockSize));
@@ -71,7 +71,7 @@ class Player{ // Definicja klasy gracza
 public:
     Player(float x, float y) : pos(sf::Vector2f(x,y)) {}
 
-    void draw(sf::RenderTarget &target){
+    void draw(sf::RenderTarget &target){ // Rysowanie postaci w 2D (niewymagane w 3D)
         sf::CircleShape playerShape(playerSize);
         playerShape.setOrigin(playerShape.getRadius(), playerShape.getRadius());
         playerShape.setPosition(pos);
@@ -94,7 +94,7 @@ public:
 	}
 
 
-    void update(float gameTime, const Map& map){
+    void update(float gameTime, const Map& map){ // Aktualizacja pozycji gracza
 
        /* float rad=angle*M_PI/180.0f;
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)) angle-=rotSpeed*gameTime;
@@ -129,9 +129,7 @@ public:
             newPos.y-=sin(rad)*moveSpeed*gameTime;
         }
 
-        if(!checkCollision(newPos, map)){
-            pos=newPos;
-        }
+        if(!checkCollision(newPos, map)) pos=newPos;
     }
 
     bool checkCollision(const sf::Vector2f& newPos, const Map& map) const{
@@ -150,10 +148,8 @@ public:
             map.getLevel()[topGridY][gridX]==1 || map.getLevel()[topGridY][leftGridX]==1){
             return true;
         }
-
         return false;
     }
-
 
     sf::Vector2f pos;
     float angle;
@@ -162,7 +158,7 @@ public:
 
 
 
-struct Ray{
+struct Ray{ // Struktura promieni
     sf::Vector2f drawPos;
     float dist;
     bool drawn;
@@ -175,7 +171,7 @@ static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){ // Rzuca
 	float blockSize=map.getBlockSize();
 
 	bool drawn=false;
-	size_t vert_dof=0, hor_dof=0;
+	unsigned int vert_dof=0, hor_dof=0;
 	float vert_dist=numeric_limits<float>::max();
 	float hor_dist=numeric_limits<float>::max();
 //	float vert_dist=FLOAT_MAX;
@@ -196,9 +192,7 @@ static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){ // Rzuca
 		offset.x=-blockSize;
 		offset.y=-offset.x*vert_tan;
 	}
-	else{
-		vert_dof=maxRayDepth;
-	}
+	else vert_dof=maxRayDepth;
 
 	const auto &level=map.getLevel();
 
@@ -229,9 +223,7 @@ static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){ // Rzuca
 		offset.y=-blockSize;
 		offset.x=-offset.y*hor_tan;
 	}
-	else{
-		hor_dof=maxRayDepth;
-	}
+	else hor_dof=maxRayDepth;
 
 	for (; hor_dof<maxRayDepth; hor_dof++){
 		int mapX=(int)(hor_rayPos.x/blockSize);
@@ -247,10 +239,9 @@ static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){ // Rzuca
 	}
 
 	return Ray{hor_dist<vert_dist ? hor_rayPos : vert_rayPos, min(hor_dist, vert_dist), drawn, vert_dist <= hor_dist};
-
 }
 
-class RayRender{
+class RayRender{ // Rysowanie promieni
 public:
     void drawRays(sf::RenderTarget &target, const Player &player, const Map &map){ // Rysowanie promieni
         for(float angle=player.angle-playerFOV/2.0f; angle<player.angle+playerFOV; angle+=0.5f){
@@ -265,7 +256,7 @@ public:
         }
     }
 
-    void render3D(sf::RenderTarget &target, const Player &player, const Map &map){ // Rysowanie w 3D
+    void render3D(sf::RenderTarget &target, const Player &player, const Map &map){ // Rysowanie w 3D (tymczasowe, zostanie zastapione algorytmem Digital Differential Analysis
 
         sf::RectangleShape rectangle(sf::Vector2f(windowWidth, windowHeight/2.0f));
         rectangle.setFillColor(sf::Color(81, 187, 254)); // Kolor skyboxa
@@ -279,18 +270,18 @@ public:
         float angleMove=playerFOV/(float)rayCount;
         const float maxRenderDist=maxRayDepth*map.getBlockSize();
         const float maxFogDist=maxRenderDist/4.0f;
-        for (unsigned int i=0; i<rayCount; i++, angle+=angleMove){
+        for(unsigned int i=0; i<rayCount; i++, angle+=angleMove){
             Ray ray=rayCast(player.pos, angle, map);
 
-            if (ray.drawn){
+            if(ray.drawn){
                 ray.dist*=cos((player.angle-angle)*M_PI/180.0f);
 
                 float wallHeight=(map.getBlockSize()*windowHeight)/ray.dist;
 
-                if (wallHeight>windowHeight)wallHeight=windowHeight;
+                if(wallHeight>windowHeight)wallHeight=windowHeight;
 
                 float brightness=1.0f-(ray.dist/maxRenderDist);
-                if (brightness<0.0f) brightness=0.0f;
+                if(brightness<0.0f) brightness=0.0f;
 
                 float shade=(ray.drawnVertical ? 0.8f : 1.0f)*brightness;
 

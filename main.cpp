@@ -11,7 +11,7 @@ vector<vector<int>>level={          // Definicja mapy
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 };
 
-sf::Clock gameClock; // Zegar gry (aby gra nie
+sf::Clock gameClock; // Zegar gry (aby gra dzialala niezaleznie od ilosci klatek)
 
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow) { // Funkcja main bez uruchamiania konsoli
 
@@ -25,7 +25,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     window.setIcon(64, 64, icon.getPixelsPtr());  // }
 
 
-    Map map(48.0f, level); // Zadeklarowanie mapy
+    Map map(48.0f, level); // Zadeklarowanie mapy, bloki o wielkosci 48
     Player player(75, 75); // Zadeklarowanie gracza, ustawienie startowej pozycji na 50,50
     RayRender rayrender; // Zadeklarowanie rzutowania cieni
 
@@ -46,7 +46,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
 //        player.update(gameTime);
 
-        window.clear();
+        window.clear(); // Wyczyszczenie poprzedniej zawartosci okna
 
 //        map.draw(window);
 //        rayrender.drawRays(window, player, map);
