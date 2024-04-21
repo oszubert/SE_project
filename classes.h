@@ -10,6 +10,8 @@
 #include <math.h>
 #include <cmath>
 #include <vector>
+#include <iostream>
+#include <string>
 
 #include <windows.h>
 
@@ -19,27 +21,38 @@ using namespace std;
 
 const float windowWidth=1152.0f; // Szerokosc okna programu
 const float windowHeight=864.0f; // Wysokosc okna programu
-//const int mapWidth=10; // Szerokosc mapy
-//const int mapHeight=10; // Wysokosc mapy
-//const int blockSize=50; // Rozmiar bloku/sciany
 
 const float playerFOV=65.0f; // Pole widzenia gracza
-const unsigned int maxRayDepth=16; // Maksymalna glebokosc promienia
+const unsigned int maxRayDepth=64; // Maksymalna glebokosc promienia
 const unsigned int rayCount=600; // Zmienna do pomocnicza do rzutowania
 const float columnWidth=windowWidth/(float)rayCount; // Zmienna pomocnicza do rzutowania
 
 const float playerSize=8.0f; // Rozmiar gracza
-const float moveSpeed=50.0f; // Predkosc ruchu gracza
-const float rotSpeed=100.0f; // Predkosc obrotu gracza
+const float moveSpeed=115.0f; // Predkosc ruchu gracza
+const float rotSpeed=115.0f; // Predkosc obrotu gracza
 
 
 class Map{ // Definicja klasy mapy
 private:
-    vector<vector<int>> level;
+    vector<vector<sf::Color>> level;
     float blockSize;
 public:
-    Map(float blockSize, int width, int height) : blockSize(blockSize), level(height, vector<int>(width, 0)) {}
-    Map(float blockSize, vector<vector<int>> level) : blockSize(blockSize), level(level) {}
+    Map(float blockSize, int width, int height) : blockSize(blockSize), level(height, vector<sf::Color>(width, sf::Color::Black)) {}
+    Map(float blockSize, const string &mapfile): blockSize(blockSize){
+        sf::Image source;
+        if(!source.loadFromFile(mapfile)){
+            cerr << "Nie mozna zaladowac pliku z mapa." << endl;
+            return;
+        }
+
+        level=vector<vector<sf::Color>>(source.getSize().y, vector<sf::Color>(source.getSize().x, sf::Color::Black));
+
+
+        for(unsigned int y=0; y<source.getSize().y; y++){
+            for(unsigned int x=0; x<source.getSize().x; x++) level[y][x]=source.getPixel(x,y);
+        }
+
+    }
 
     void draw(sf::RenderTarget &target){ //Rysowanie mapy (2D, niewymagane w 3D)
         if (level.empty()) return;
@@ -52,8 +65,7 @@ public:
 
         for(unsigned int y=0; y<level.size(); y++){
             for(unsigned int x=0; x<level[y].size(); x++){
-                if(level[y][x]==0) block.setFillColor(sf::Color(11, 32, 39)); // Kolor podloza (rzutowanie 2D)
-                else if(level[y][x]==1) block.setFillColor(sf::Color(64, 121, 140)); // Kolor bloku (sciana, rzutowanie 2D)
+                block.setFillColor(level[y][x]);
 
                 block.setPosition(sf::Vector2f(x, y)*blockSize+sf::Vector2f(blockSize*0.025f, blockSize*0.025f));
                 target.draw(block);
@@ -62,14 +74,14 @@ public:
     }
 
     float getBlockSize() const {return blockSize;}
-    const vector<vector<int>>& getLevel() const {return level;}
+    const vector<vector<sf::Color>>& getLevel() const {return level;}
 };
 
 
 
 class Player{ // Definicja klasy gracza
 public:
-    Player(float x, float y) : pos(sf::Vector2f(x,y)) {}
+//    Player(float x, float y) : pos(sf::Vector2f(x,y)) {}
 
     void draw(sf::RenderTarget &target){ // Rysowanie postaci w 2D (niewymagane w 3D)
         sf::CircleShape playerShape(playerSize);
@@ -82,21 +94,13 @@ public:
         playerShape.setTexture(&tex);
         playerShape.setTextureRect(sf::IntRect(0, 0, 16, 16));
 
-/*
-        // Nieuzywana linia wskazujaca obrot postaci (zastapiona przez obracajaca sie teksture postaci)
-        sf::RectangleShape line(sf::Vector2f(24.0f, 2.0f));
-        line.setPosition(pos);
-        line.setRotation(angle);
-        line.setFillColor(sf::Color::Blue);
-
-        target.draw(line);*/
         target.draw(playerShape);
 	}
 
 
-    void update(float gameTime, const Map& map){ // Aktualizacja pozycji gracza
+    void update(float gameTime){ // Aktualizacja pozycji gracza
 
-       /* float rad=angle*M_PI/180.0f;
+        float rad=angle*M_PI/180.0f;
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)) angle-=rotSpeed*gameTime;
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)) angle+=rotSpeed*gameTime;
 
@@ -108,47 +112,7 @@ public:
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
             pos.x-=cos(rad)*moveSpeed*gameTime;
             pos.y-=sin(rad)*moveSpeed*gameTime;
-        }*/
-
-
-        // Tymczasowe rozwiazanie kolizji
-
-        float rad=angle*M_PI/180.0f;
-
-        sf::Vector2f newPos=pos;
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)) angle-=rotSpeed*gameTime;
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)) angle+=rotSpeed*gameTime;
-
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)){
-            newPos.x+=cos(rad)*moveSpeed*gameTime;
-            newPos.y+=sin(rad)*moveSpeed*gameTime;
         }
-
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)){
-            newPos.x-=cos(rad)*moveSpeed*gameTime;
-            newPos.y-=sin(rad)*moveSpeed*gameTime;
-        }
-
-        if(!checkCollision(newPos, map)) pos=newPos;
-    }
-
-    bool checkCollision(const sf::Vector2f& newPos, const Map& map) const{
-        int gridX=static_cast<int>((newPos.x+playerSize)/map.getBlockSize());
-        int gridY=static_cast<int>((newPos.y+playerSize)/map.getBlockSize());
-
-        int leftGridX=static_cast<int>((newPos.x - playerSize)/map.getBlockSize());
-        int topGridY=static_cast<int>((newPos.y - playerSize)/map.getBlockSize());
-
-        if (gridX<0 || gridX>=map.getLevel()[0].size() || gridY<0 || gridY>=map.getLevel().size() ||
-            leftGridX<0 || leftGridX>=map.getLevel()[0].size() || topGridY<0 || topGridY>=map.getLevel().size()) {
-            return true;
-        }
-
-        if(map.getLevel()[gridY][gridX]==1 || map.getLevel()[gridY][leftGridX]==1 ||
-            map.getLevel()[topGridY][gridX]==1 || map.getLevel()[topGridY][leftGridX]==1){
-            return true;
-        }
-        return false;
     }
 
     sf::Vector2f pos;
@@ -160,6 +124,7 @@ public:
 
 struct Ray{ // Struktura promieni
     sf::Vector2f drawPos;
+    sf::Vector2u mapPos;
     float dist;
     bool drawn;
     bool drawnVertical;
@@ -177,6 +142,7 @@ static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){ // Rzuca
 //	float vert_dist=FLOAT_MAX;
 //	float hor_dist=FLOAT_MAX;
 
+    sf::Vector2u vert_mapPos, hor_mapPos;
 	sf::Vector2f vert_rayPos, hor_rayPos, offset;
 	if (cos(angle)>0.001f){
 		vert_rayPos.x=floor(start.x/blockSize)*blockSize+blockSize;
@@ -200,9 +166,13 @@ static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){ // Rzuca
 		int mapX=(int)(vert_rayPos.x/blockSize);
 		int mapY=(int)(vert_rayPos.y/blockSize);
 
-		if (mapY<level.size() && mapX<level[mapY].size() && level[mapY][mapX]){
+		if (mapY<level.size() && mapX<level[mapY].size() && level[mapY][mapX]!=sf::Color::Black){
 			drawn=true;
-			vert_dist=sqrt((vert_rayPos.x-start.x)*(vert_rayPos.x-start.x)+(vert_rayPos.y-start.y)*(vert_rayPos.y-start.y));
+			vert_dist=sqrt(
+                (vert_rayPos.x-start.x)*(vert_rayPos.x-start.x) +
+                (vert_rayPos.y-start.y)*(vert_rayPos.y-start.y)
+            );
+			vert_mapPos=sf::Vector2u(mapX, mapY);
 			break;
 		}
 
@@ -229,16 +199,20 @@ static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){ // Rzuca
 		int mapX=(int)(hor_rayPos.x/blockSize);
 		int mapY=(int)(hor_rayPos.y/blockSize);
 
-		if (mapY<level.size() && mapX<level[mapY].size() && level[mapY][mapX]){
+		if (mapY<level.size() && mapX<level[mapY].size() && level[mapY][mapX]!=sf::Color::Black){
 			drawn=true;
-			hor_dist=sqrt((hor_rayPos.x-start.x)*(hor_rayPos.x-start.x)+(hor_rayPos.y-start.y)*(hor_rayPos.y-start.y));
+			hor_dist=sqrt(
+                (hor_rayPos.x-start.x)*(hor_rayPos.x-start.x)+
+                (hor_rayPos.y-start.y)*(hor_rayPos.y-start.y)
+            );
+			hor_mapPos=sf::Vector2u(mapX, mapY);
 			break;
 		}
 
 		hor_rayPos+=offset;
 	}
 
-	return Ray{hor_dist<vert_dist ? hor_rayPos : vert_rayPos, min(hor_dist, vert_dist), drawn, vert_dist <= hor_dist};
+	return Ray{hor_dist<vert_dist ? hor_rayPos : vert_rayPos, hor_dist < vert_dist ? hor_mapPos : vert_mapPos, min(hor_dist, vert_dist), drawn, vert_dist <= hor_dist};
 }
 
 class RayRender{ // Rysowanie promieni
@@ -257,14 +231,15 @@ public:
     }
 
     void render3D(sf::RenderTarget &target, const Player &player, const Map &map){ // Rysowanie w 3D (tymczasowe, zostanie zastapione algorytmem Digital Differential Analysis
-
         sf::RectangleShape rectangle(sf::Vector2f(windowWidth, windowHeight/2.0f));
         rectangle.setFillColor(sf::Color(81, 187, 254)); // Kolor skyboxa
         target.draw(rectangle);
+        const sf::Color fogColor=sf::Color(81, 187, 254);
 
         rectangle.setPosition(0.0f, windowHeight / 2.0f);
         rectangle.setFillColor(sf::Color(14, 176, 92)); // Kolor ziemii
         target.draw(rectangle);
+
 
         float angle=player.angle-playerFOV/2.0f;
         float angleMove=playerFOV/(float)rayCount;
@@ -289,7 +264,17 @@ public:
                 sf::RectangleShape column(sf::Vector2f(columnWidth, wallHeight));
                 column.setPosition(i*columnWidth, wallOffset);
 
-                column.setFillColor(sf::Color(199*shade, 0*shade, 57*shade)); // Kolor scian
+                float fogVisibility=(ray.dist/maxFogDist);
+                if(fogVisibility>1.0f) fogVisibility=1.0f;
+
+                sf::Color color=map.getLevel()[ray.mapPos.y][ray.mapPos.x];
+                color=sf::Color(color.r*shade, color.g*shade, color.b*shade);
+                column.setFillColor(sf::Color(
+                    (1.0f-fogVisibility)*color.r+fogVisibility*fogColor.r,
+                    (1.0f-fogVisibility)*color.g+fogVisibility*fogColor.g,
+                    (1.0f-fogVisibility)*color.b+fogVisibility*fogColor.b)
+                );
+
                 target.draw(column);
             }
         }
