@@ -98,11 +98,17 @@ public:
 	}
 
 
-    void update(float gameTime){ // Aktualizacja pozycji gracza
+    void update(float gameTime, int mousePos){ // Aktualizacja pozycji gracza
 
         float rad=angle*M_PI/180.0f;
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)) angle-=rotSpeed*gameTime;
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)) angle+=rotSpeed*gameTime;
+
+        float mouseSens = 10;
+        //angle += mouse.getPosition().x * gameTime * mouseSens;
+        angle += (mousePos - windowWidth/2) * mouseSens * gameTime;
+
+
+//        if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)) angle-=rotSpeed*gameTime;
+//        if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)) angle+=rotSpeed*gameTime;
 
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
             pos.x+=cos(rad)*moveSpeed*gameTime;
@@ -112,6 +118,16 @@ public:
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
             pos.x-=cos(rad)*moveSpeed*gameTime;
             pos.y-=sin(rad)*moveSpeed*gameTime;
+        }
+
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
+            pos.x+=sin(rad)*moveSpeed*gameTime;
+            pos.y-=cos(rad)*moveSpeed*gameTime;
+        }
+
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
+            pos.x-=sin(rad)*moveSpeed*gameTime;
+            pos.y+=cos(rad)*moveSpeed*gameTime;
         }
     }
 
@@ -216,7 +232,17 @@ static Ray rayCast(sf::Vector2f start, float angleDeg, const Map &map){ // Rzuca
 }
 
 class RayRender{ // Rysowanie promieni
+private:
+    sf::Texture wallTex;
+    sf::Sprite wallSprite;
 public:
+    void init(){ // Tworzenie tekstury i sprite
+        if (!wallTex.loadFromFile("brick.png")){
+            cerr<<"Nie ma pliku brick.png"; return;}
+        if(wallTex.getSize().x != wallTex.getSize().y){
+            cerr<<"Tekstura nie jest kwadratem"; return;}
+        wallSprite = sf::Sprite(wallTex);
+    }
     void drawRays(sf::RenderTarget &target, const Player &player, const Map &map){ // Rysowanie promieni
         for(float angle=player.angle-playerFOV/2.0f; angle<player.angle+playerFOV; angle+=0.5f){
             Ray ray=rayCast(player.pos, angle, map);
@@ -245,6 +271,7 @@ public:
         float angleMove=playerFOV/(float)rayCount;
         const float maxRenderDist=maxRayDepth*map.getBlockSize();
         const float maxFogDist=maxRenderDist/4.0f;
+        sf::RectangleShape column{sf::Vector2f(1.0f,1.0f)};
         for(unsigned int i=0; i<rayCount; i++, angle+=angleMove){
             Ray ray=rayCast(player.pos, angle, map);
 
@@ -252,6 +279,23 @@ public:
                 ray.dist*=cos((player.angle-angle)*M_PI/180.0f);
 
                 float wallHeight=(map.getBlockSize()*windowHeight)/ray.dist;
+                float wallOffset=windowHeight/2.0f-wallHeight/2.0f;
+
+                float textureDiv;
+                if(ray.drawnVertical){
+                    textureDiv = ray.drawPos.y -
+                                 wallTex.getSize().x * floor(ray.drawPos.y / wallTex.getSize().x);
+                }
+                else{
+                    textureDiv = wallTex.getSize().x * ceil(ray.drawPos.x / wallTex.getSize().x)
+                                 - ray.drawPos.x;
+                }
+
+                wallSprite.setPosition(i*columnWidth, wallOffset);
+                wallSprite.setTextureRect(sf::IntRect(textureDiv,0,
+                                                      wallTex.getSize().x / map.getBlockSize(),
+                                                      wallTex.getSize().y));
+                wallSprite.setScale(columnWidth, wallHeight / wallTex.getSize().y);
 
                 if(wallHeight>windowHeight)wallHeight=windowHeight;
 
@@ -260,22 +304,23 @@ public:
 
                 float shade=(ray.drawnVertical ? 0.8f : 1.0f)*brightness;
 
-                float wallOffset=windowHeight/2.0f-wallHeight/2.0f;
-                sf::RectangleShape column(sf::Vector2f(columnWidth, wallHeight));
-                column.setPosition(i*columnWidth, wallOffset);
 
                 float fogVisibility=(ray.dist/maxFogDist);
                 if(fogVisibility>1.0f) fogVisibility=1.0f;
+//
+                column.setPosition(i*columnWidth, wallOffset);
+                column.setScale(columnWidth, wallHeight);
+                column.setFillColor(sf::Color(fogColor.r, fogColor.g, fogColor.b, fogVisibility * 255));
+//                sf::Color color=map.getLevel()[ray.mapPos.y][ray.mapPos.x];
+//                color=sf::Color(color.r*shade, color.g*shade, color.b*shade);
+//                column.setFillColor(sf::Color(
+//                    (1.0f-fogVisibility)*color.r+fogVisibility*fogColor.r,
+//                    (1.0f-fogVisibility)*color.g+fogVisibility*fogColor.g,
+//                    (1.0f-fogVisibility)*color.b+fogVisibility*fogColor.b)
+//                );
+                wallSprite.setColor(sf::Color(255*shade, 255*shade, 255*shade));
+                target.draw(wallSprite);
 
-                sf::Color color=map.getLevel()[ray.mapPos.y][ray.mapPos.x];
-                color=sf::Color(color.r*shade, color.g*shade, color.b*shade);
-                column.setFillColor(sf::Color(
-                    (1.0f-fogVisibility)*color.r+fogVisibility*fogColor.r,
-                    (1.0f-fogVisibility)*color.g+fogVisibility*fogColor.g,
-                    (1.0f-fogVisibility)*color.b+fogVisibility*fogColor.b)
-                );
-
-                target.draw(column);
             }
         }
     }

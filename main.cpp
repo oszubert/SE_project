@@ -4,6 +4,8 @@
 sf::Clock gameClock; // Zegar gry (aby gra dzialala niezaleznie od ilosci klatek)
 
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow) { // Funkcja main bez uruchamiania konsoli
+    //AllocConsole(); freopen("CONOUT$", "w+", stdout); // konsola dla debugowania
+
 
     sf::RenderWindow window(sf::VideoMode(windowWidth, windowHeight), "Render Engine Project"); // Definicja okna
 
@@ -19,11 +21,22 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     Player player; // Zadeklarowanie gracza
     player.pos=sf::Vector2f(100, 100); // Ustawienie pozycji gracza na (100,100)
     RayRender rayrender; // Zadeklarowanie rzutowania cieni
+    rayrender.init();
 
     while(window.isOpen()){ // Gra
         sf::Event event;
 
+
         float gameTime=gameClock.restart().asSeconds(); // Zegar gry
+
+        window.setMouseCursorGrabbed(true);
+        window.setMouseCursorVisible(false);
+
+        sf::Mouse mouse;
+        cout<<mouse.getPosition(window).x<<endl;
+        int t = 8;
+//        mouse.setPosition(mouse.getPosition(window) + (sf::Vector2i(window.getSize()/2) - mouse.getPosition(window))*t/10, window);
+        mouse.setPosition( (mouse.getPosition(window) + sf::Vector2i(window.getSize())/2)/ 2 , window);
 
         while(window.pollEvent(event)){
             if(event.type==sf::Event::Closed) // Zamkniecie gry przy zamknieciu okna
@@ -32,7 +45,7 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
                 window.close();
         }
 
-        player.update(gameTime); // Aktualizacja pozycji gracza
+        player.update(gameTime, mouse.getPosition(window).x); // Aktualizacja pozycji gracza
 
         window.clear(); // Wyczyszczenie poprzedniej zawartosci okna
 
