@@ -4,7 +4,7 @@
 sf::Clock gameClock; // Zegar gry (aby gra dzialala niezaleznie od ilosci klatek)
 
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow) { // Funkcja main bez uruchamiania konsoli
-    //AllocConsole(); freopen("CONOUT$", "w+", stdout); // konsola dla debugowania
+//    AllocConsole(); freopen("CONOUT$", "w+", stdout); // konsola dla debugowania
 
 
     sf::RenderWindow window(sf::VideoMode(windowWidth, windowHeight), "Render Engine Project"); // Definicja okna
@@ -23,20 +23,14 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     RayRender rayrender; // Zadeklarowanie rzutowania cieni
     rayrender.init();
 
+    sf::Mouse mouse;
+    window.setMouseCursorGrabbed(true);
+    window.setMouseCursorVisible(false);
+
     while(window.isOpen()){ // Gra
         sf::Event event;
 
-
         float gameTime=gameClock.restart().asSeconds(); // Zegar gry
-
-        window.setMouseCursorGrabbed(true);
-        window.setMouseCursorVisible(false);
-
-        sf::Mouse mouse;
-        cout<<mouse.getPosition(window).x<<endl;
-        int t = 8;
-//        mouse.setPosition(mouse.getPosition(window) + (sf::Vector2i(window.getSize()/2) - mouse.getPosition(window))*t/10, window);
-        mouse.setPosition( (mouse.getPosition(window) + sf::Vector2i(window.getSize())/2)/ 2 , window);
 
         while(window.pollEvent(event)){
             if(event.type==sf::Event::Closed) // Zamkniecie gry przy zamknieciu okna
@@ -45,14 +39,15 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
                 window.close();
         }
 
-        player.update(gameTime, mouse.getPosition(window).x); // Aktualizacja pozycji gracza
+        player.update(gameTime, mouse.getPosition(window)); // Aktualizacja pozycji gracza
+        mouse.setPosition(sf::Vector2i(window.getSize())/2, window); //Resetowanie myszy do srodka ekranu
+//       ^ nieplynny ruch, potencjalna przyszla zmiana na raw input!!
 
         window.clear(); // Wyczyszczenie poprzedniej zawartosci okna
 
 //        map.draw(window);
 //        rayrender.drawRays(window, player, map);
 //        player.draw(window);
-
         rayrender.render3D(window, player, map); // Rysowanie w perspektywie 3D
 
         window.display(); // Wyswietlenie obrazu

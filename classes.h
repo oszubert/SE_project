@@ -29,6 +29,7 @@ const float columnWidth=windowWidth/(float)rayCount; // Zmienna pomocnicza do rz
 
 const float playerSize=8.0f; // Rozmiar gracza
 const float moveSpeed=115.0f; // Predkosc ruchu gracza
+const float sprintMultiplier=1.8f; // Mnoznik biegania
 const float rotSpeed=115.0f; // Predkosc obrotu gracza
 
 
@@ -98,36 +99,40 @@ public:
 	}
 
 
-    void update(float gameTime, int mousePos){ // Aktualizacja pozycji gracza
+    void update(float gameTime, sf::Vector2i mousePos){ // Aktualizacja pozycji gracza
 
         float rad=angle*M_PI/180.0f;
 
-        float mouseSens = 10;
+        float mouseSens = 50;
         //angle += mouse.getPosition().x * gameTime * mouseSens;
-        angle += (mousePos - windowWidth/2) * mouseSens * gameTime;
+        angle += (mousePos.x - windowWidth/2) * mouseSens * gameTime;
 
 
 //        if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)) angle-=rotSpeed*gameTime;
 //        if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)) angle+=rotSpeed*gameTime;
+        float currentMoveSpeed;
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::LShift))
+            currentMoveSpeed = moveSpeed * sprintMultiplier;
+        else currentMoveSpeed = moveSpeed;
 
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::W)) {
-            pos.x+=cos(rad)*moveSpeed*gameTime;
-            pos.y+=sin(rad)*moveSpeed*gameTime;
+            pos.x+=cos(rad)*currentMoveSpeed*gameTime;
+            pos.y+=sin(rad)*currentMoveSpeed*gameTime;
         }
 
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::S)) {
-            pos.x-=cos(rad)*moveSpeed*gameTime;
-            pos.y-=sin(rad)*moveSpeed*gameTime;
+            pos.x-=cos(rad)*currentMoveSpeed*gameTime;
+            pos.y-=sin(rad)*currentMoveSpeed*gameTime;
         }
 
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)) {
-            pos.x+=sin(rad)*moveSpeed*gameTime;
-            pos.y-=cos(rad)*moveSpeed*gameTime;
+            pos.x+=sin(rad)*currentMoveSpeed*gameTime;
+            pos.y-=cos(rad)*currentMoveSpeed*gameTime;
         }
 
         if(sf::Keyboard::isKeyPressed(sf::Keyboard::D)) {
-            pos.x-=sin(rad)*moveSpeed*gameTime;
-            pos.y+=cos(rad)*moveSpeed*gameTime;
+            pos.x-=sin(rad)*currentMoveSpeed*gameTime;
+            pos.y+=cos(rad)*currentMoveSpeed*gameTime;
         }
     }
 
@@ -260,18 +265,18 @@ public:
         sf::RectangleShape rectangle(sf::Vector2f(windowWidth, windowHeight/2.0f));
         rectangle.setFillColor(sf::Color(81, 187, 254)); // Kolor skyboxa
         target.draw(rectangle);
-        const sf::Color fogColor=sf::Color(81, 187, 254);
 
         rectangle.setPosition(0.0f, windowHeight / 2.0f);
         rectangle.setFillColor(sf::Color(14, 176, 92)); // Kolor ziemii
         target.draw(rectangle);
 
-
-        float angle=player.angle-playerFOV/2.0f;
-        float angleMove=playerFOV/(float)rayCount;
+        const sf::Color fogColor=sf::Color(81, 187, 254);
         const float maxRenderDist=maxRayDepth*map.getBlockSize();
         const float maxFogDist=maxRenderDist/4.0f;
+
         sf::RectangleShape column{sf::Vector2f(1.0f,1.0f)};
+        float angle=player.angle-playerFOV/2.0f;
+        float angleMove=playerFOV/(float)rayCount;
         for(unsigned int i=0; i<rayCount; i++, angle+=angleMove){
             Ray ray=rayCast(player.pos, angle, map);
 
@@ -293,7 +298,8 @@ public:
 
                 wallSprite.setPosition(i*columnWidth, wallOffset);
                 wallSprite.setTextureRect(sf::IntRect(textureDiv,0,
-                                                      wallTex.getSize().x / map.getBlockSize(),
+//                                                      wallTex.getSize().x / map.getBlockSize(),
+                                                      columnWidth, // ?? Z poprzednia linijka tekstury zle "podchodzily" pod mgle
                                                       wallTex.getSize().y));
                 wallSprite.setScale(columnWidth, wallHeight / wallTex.getSize().y);
 
@@ -305,7 +311,7 @@ public:
                 float shade=(ray.drawnVertical ? 0.8f : 1.0f)*brightness;
 
 
-                float fogVisibility=(ray.dist/maxFogDist);
+                float fogVisibility = (pow(ray.dist/maxFogDist, 2)); //krzywa mgly
                 if(fogVisibility>1.0f) fogVisibility=1.0f;
 //
                 column.setPosition(i*columnWidth, wallOffset);
@@ -320,6 +326,8 @@ public:
 //                );
                 wallSprite.setColor(sf::Color(255*shade, 255*shade, 255*shade));
                 target.draw(wallSprite);
+                target.draw(column);
+//                cout<<wallTex.getSize().x<<" "<<columnWidth<<endl;
 
             }
         }
