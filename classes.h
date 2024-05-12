@@ -17,12 +17,15 @@
 
 using namespace std;
 
-const float M_PI=3.14159265358979323846;
+//const float M_PI=3.14159265358979323846;
 
-const float windowWidth=1152.0f; // Szerokosc okna programu
-const float windowHeight=864.0f; // Wysokosc okna programu
+//const float windowWidth=1152.0f; // Szerokosc okna programu
+//const float windowHeight=864.0f; // Wysokosc okna programu
+const float windowWidth=800.0f; // Szerokosc okna programu
+const float windowHeight=600.0f; // Wysokosc okna programu
 
 const float playerFOV=65.0f; // Pole widzenia gracza
+const float cameraZ=0.5f*windowHeight; // Wysokosc kamery
 const unsigned int maxRayDepth=64; // Maksymalna glebokosc promienia
 //const unsigned int rayCount=600; // Zmienna do pomocnicza do rzutowania
 //const float columnWidth=windowWidth/(float)rayCount; // Zmienna pomocnicza do rzutowania
@@ -145,12 +148,18 @@ public:
 class RayRender{ // Rysowanie promieni
 private:
     sf::Texture wallTex;
+    sf::Image floorImage;
 public:
     void init(){ // Tworzenie tekstury i sprite
         if (!wallTex.loadFromFile("brick.png")){
-            cerr<<"Nie ma pliku brick.png"; return;}
+            cerr<<"Nie udalo sie zaladowac brick.png!";}
         if(wallTex.getSize().x != wallTex.getSize().y){
-            cerr<<"Tekstura nie jest kwadratem"; return;}
+            cerr<<"Tekstura brick.png nie jest kwadratem!";}
+
+        if (!floorImage.loadFromFile("floor.png")){
+            cerr<<"Nie udalo sie zaladowac floor.png!";}
+        if(floorImage.getSize().x != floorImage.getSize().y){
+            cerr<<"Tekstura floor.png nie jest kwadratem!";}
     }
 
     void render3D(sf::RenderTarget &target, const Player &player, const Map &map){ // Rysowanie w 3D (tymczasowe, zostanie zastapione algorytmem Digital Differential Analysis
@@ -158,18 +167,53 @@ public:
         rectangle.setFillColor(sf::Color(81, 187, 254)); // Kolor skyboxa
         target.draw(rectangle);
 
-        rectangle.setPosition(0.0f, windowHeight / 2.0f);
-        rectangle.setFillColor(sf::Color(14, 176, 92)); // Kolor ziemii
-        target.draw(rectangle);
+//        rectangle.setPosition(0.0f, windowHeight / 2.0f);
+//        rectangle.setFillColor(sf::Color(14, 176, 92)); // Kolor ziemii
+//        target.draw(rectangle);
 
         float rad=player.angle*M_PI/180.0f;
         sf::Vector2f direction{cos(rad), sin(rad)};
         sf::Vector2f plane{-direction.y, direction.x * 0.66f};
+        sf::Vector2f position=player.pos/map.getBlockSize();
+
+        //Problem z za duzym rozmiarem listy!!
+        uint8_t floorPixels[(size_t)windowWidth * (size_t)windowHeight * (size_t)4]{};
+        for(size_t y=windowHeight/2; y<windowHeight; y++){
+            sf::Vector2f rayDirLeft{direction-plane}, rayDirRight{direction+plane};
+            float rowDistance = cameraZ / ((float)y-windowHeight/2);
+
+            sf::Vector2f floorStep = rowDistance*(rayDirRight-rayDirLeft)/windowWidth;
+            sf::Vector2f floorPos = position+rowDistance*rayDirLeft;
+
+            for(size_t x=0; x<windowWidth; x++){
+                sf::Vector2i cell{floorPos};
+
+                float texSize = floorImage.getSize().x;
+                sf::Vector2i texCoords{texSize*(floorPos-(sf::Vector2f)cell)};
+                texCoords.x &= (int)texSize-1;
+                texCoords.y &= (int)texSize-1;
+//                floorPixels.append(sf::Vertex(sf::Vector2f(x,y), texCoords));
+                sf::Color color = floorImage.getPixel(texCoords.x, texCoords.y);
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 0] = color.r;
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 1] = color.g;
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 2] = color.b;
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 3] = color.a;
+
+                floorPos += floorStep;
+            }
+        }
+
+        sf::Image image;
+        image.create((unsigned int)windowWidth, (unsigned int)windowHeight, floorPixels);
+        sf::Texture texture;
+        texture.loadFromImage(image);
+        sf::Sprite sprite{texture};
+        target.draw(sprite);
 
         sf::VertexArray walls{sf::Lines};
         for(unsigned int i=0; i<windowWidth; i++){
             float cameraX=i*2.0f/windowWidth-1.0f;
-            sf::Vector2f rayPos=player.pos/map.getBlockSize();
+            sf::Vector2f rayPos=position;
             sf::Vector2f rayDir=direction+plane*cameraX;
 
             sf::Vector2f deltaDist{
