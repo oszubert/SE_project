@@ -147,7 +147,7 @@ public:
 
 class RayRender{ // Rysowanie promieni
 private:
-    sf::Texture wallTex;
+    sf::Texture wallTex, skyBox;
     sf::Image floorImage;
 public:
     void init(){ // Tworzenie tekstury i sprite
@@ -160,6 +160,12 @@ public:
             cerr<<"Nie udalo sie zaladowac floor.png!";}
         if(floorImage.getSize().x != floorImage.getSize().y){
             cerr<<"Tekstura floor.png nie jest kwadratem!";}
+
+
+        if (!skyBox.loadFromFile("skybox.png")) {
+            std::cerr << "Nie udalo sie zaladowac skybox.png!";}
+
+        skyBox.setRepeated(true);
     }
 
     void render3D(sf::RenderTarget &target, const Player &player, const Map &map){ // Rysowanie w 3D (tymczasowe, zostanie zastapione algorytmem Digital Differential Analysis
@@ -175,6 +181,20 @@ public:
         sf::Vector2f direction{cos(rad), sin(rad)};
         sf::Vector2f plane{-direction.y, direction.x * 0.66f};
         sf::Vector2f position=player.pos/map.getBlockSize();
+
+
+        int skyboxOffset=windowWidth/rotSpeed*player.angle;
+
+        while(skyboxOffset<0) skyboxOffset+=skyBox.getSize().x;
+
+        sf::Vertex sky[]={
+            sf::Vertex(sf::Vector2f(0.0f, 0.0f), sf::Vector2f(skyboxOffset, 0.0f)),
+            sf::Vertex(sf::Vector2f(0.0f, windowHeight), sf::Vector2f(skyboxOffset, skyBox.getSize().y)),
+            sf::Vertex(sf::Vector2f(windowWidth, windowHeight), sf::Vector2f(skyboxOffset + skyBox.getSize().x, skyBox.getSize().y)),
+            sf::Vertex(sf::Vector2f(windowWidth, 0.0f), sf::Vector2f(skyboxOffset + skyBox.getSize().x, 0.0f)),
+        };
+
+        target.draw(sky, 4, sf::Quads, sf::RenderStates(&skyBox));
 
         //Problem z za duzym rozmiarem listy!!
         uint8_t floorPixels[(size_t)windowWidth * (size_t)windowHeight * (size_t)4]{};
