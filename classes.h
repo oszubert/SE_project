@@ -24,7 +24,7 @@ using namespace std;
 const float windowWidth=800.0f; // Szerokosc okna programu
 const float windowHeight=600.0f; // Wysokosc okna programu
 
-const float playerFOV=65.0f; // Pole widzenia gracza
+const float playerFOV=55.0f; // Pole widzenia gracza
 const float cameraZ=0.5f*windowHeight; // Wysokosc kamery
 const unsigned int maxRayDepth=64; // Maksymalna glebokosc promienia
 //const unsigned int rayCount=600; // Zmienna do pomocnicza do rzutowania
@@ -35,13 +35,16 @@ const float moveSpeed=115.0f; // Predkosc ruchu gracza
 const float sprintMultiplier=1.8f; // Mnoznik biegania
 const float rotSpeed=115.0f; // Predkosc obrotu gracza
 
+typedef vector<vector<int>> MapLevel;
 
 class Map{ // Definicja klasy mapy
 private:
-    vector<vector<sf::Color>> level;
+//    vector<vector<sf::Color>> level;
+    MapLevel level;
     float blockSize;
 public:
-    Map(float blockSize, int width, int height) : blockSize(blockSize), level(height, vector<sf::Color>(width, sf::Color::Black)) {}
+//    Map(float blockSize, int width, int height) : blockSize(blockSize), level(height, vector<sf::Color>(width, sf::Color::Black)) {}
+    Map(float blockSize, int width, int height) : blockSize(blockSize), level(height, vector<int>(width, 0)) {}
     Map(float blockSize, const string &mapfile): blockSize(blockSize){
         sf::Image source;
         if(!source.loadFromFile(mapfile)){
@@ -49,11 +52,13 @@ public:
             return;
         }
 
-        level=vector<vector<sf::Color>>(source.getSize().y, vector<sf::Color>(source.getSize().x, sf::Color::Black));
+//        level=vector<vector<sf::Color>>(source.getSize().y, vector<sf::Color>(source.getSize().x, sf::Color::Black));
+        level=vector<vector<int>>(source.getSize().y, vector<int>(source.getSize().x, 0));
 
 
         for(unsigned int y=0; y<source.getSize().y; y++){
-            for(unsigned int x=0; x<source.getSize().x; x++) level[y][x]=source.getPixel(x,y);
+//            for(unsigned int x=0; x<source.getSize().x; x++) level[y][x]=source.getPixel(x,y);
+            for(unsigned int x=0; x<source.getSize().x; x++) level[y][x]=source.getPixel(x,y)==sf::Color::Black ? 0 : 1;
         }
 
     }
@@ -69,16 +74,21 @@ public:
 
         for(unsigned int y=0; y<level.size(); y++){
             for(unsigned int x=0; x<level[y].size(); x++){
-                block.setFillColor(level[y][x]);
+//                block.setFillColor(level[y][x]);
+                block.setFillColor(level[y][x] ? sf::Color::White : sf::Color(70, 70, 70));
 
                 block.setPosition(sf::Vector2f(x, y)*blockSize+sf::Vector2f(blockSize*0.025f, blockSize*0.025f));
                 target.draw(block);
             }
         }
     }
+    void setMapBlock(int x, int y, int value){
+        if (y>=0 && y<level.size() && x>=0 && x<level[y].size()) level[y][x]=value;
+    }
 
     float getBlockSize() const {return blockSize;}
-    const vector<vector<sf::Color>>& getLevel() const {return level;}
+//    const vector<vector<sf::Color>>& getLevel() const {return level;}
+    const MapLevel &getLevel() const {return level;}
 };
 
 
@@ -149,8 +159,15 @@ class RayRender{ // Rysowanie promieni
 private:
     sf::Texture wallTex, skyBox;
     sf::Image floorImage;
+
+    sf::Texture floorBuffer;
+    sf::Sprite floorBufferSprite;
 public:
     void init(){ // Tworzenie tekstury i sprite
+
+        floorBuffer.create(windowWidth, windowHeight);
+        floorBufferSprite.setTexture(floorBuffer);
+
         if (!wallTex.loadFromFile("brick.png")){
             cerr<<"Nie udalo sie zaladowac brick.png!";}
         if(wallTex.getSize().x != wallTex.getSize().y){
@@ -169,21 +186,13 @@ public:
     }
 
     void render3D(sf::RenderTarget &target, const Player &player, const Map &map){ // Rysowanie w 3D (tymczasowe, zostanie zastapione algorytmem Digital Differential Analysis
-        sf::RectangleShape rectangle(sf::Vector2f(windowWidth, windowHeight/2.0f));
-        rectangle.setFillColor(sf::Color(81, 187, 254)); // Kolor skyboxa
-        target.draw(rectangle);
-
-//        rectangle.setPosition(0.0f, windowHeight / 2.0f);
-//        rectangle.setFillColor(sf::Color(14, 176, 92)); // Kolor ziemii
-//        target.draw(rectangle);
-
         float rad=player.angle*M_PI/180.0f;
         sf::Vector2f direction{cos(rad), sin(rad)};
         sf::Vector2f plane{-direction.y, direction.x * 0.66f};
         sf::Vector2f position=player.pos/map.getBlockSize();
 
 
-        int skyboxOffset=windowWidth/rotSpeed*player.angle;
+        int skyboxOffset=2.4*windowWidth/rotSpeed*player.angle; // 2.4 - losowy numer, nie pasowal mi kat obracania, pewnie da sie to jakos obliczyc
 
         while(skyboxOffset<0) skyboxOffset+=skyBox.getSize().x;
 
@@ -222,13 +231,9 @@ public:
                 floorPos += floorStep;
             }
         }
+        floorBuffer.update(floorPixels);
+        target.draw(floorBufferSprite);
 
-        sf::Image image;
-        image.create((unsigned int)windowWidth, (unsigned int)windowHeight, floorPixels);
-        sf::Texture texture;
-        texture.loadFromImage(image);
-        sf::Sprite sprite{texture};
-        target.draw(sprite);
 
         sf::VertexArray walls{sf::Lines};
         for(unsigned int i=0; i<windowWidth; i++){
@@ -279,7 +284,7 @@ public:
 
                 int x=mapPos.x, y=mapPos.y;
                 const auto &level=map.getLevel();
-                if (y>=0 && y<level.size() && x>=0 && x<level[y].size() && level[y][x]!=sf::Color::Black) rayHit=true;
+                if (y>=0 && y<level.size() && x>=0 && x<level[y].size() && level[y][x]) rayHit=true;
                 depth++;
             }
 
@@ -307,6 +312,51 @@ public:
         sf::RenderStates states{&wallTex};
         target.draw(walls, states);
     }
+};
+
+class Editor{
+public:
+	void init(sf::RenderWindow &window){
+	    view=window.getView();
+	    block.setFillColor(sf::Color::Green);
+    }
+
+	void run(sf::RenderWindow &window, Map &map){
+
+        handleKeyboardInput();
+
+        sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+        sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
+        sf::Vector2i mapPos = (sf::Vector2i)(worldPos / map.getBlockSize());
+        block.setSize(sf::Vector2f(map.getBlockSize(), map.getBlockSize()));
+        block.setPosition((sf::Vector2f)mapPos * map.getBlockSize());
+        window.draw(block);
+
+        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) map.setMapBlock(mapPos.x, mapPos.y, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) ? 0 : 1);
+
+        window.setView(view);
+    }
+
+	void handleEvent(const sf::Event &event){
+//        if(event.type==sf::Event::MouseWheelScrolled){
+//            float zoom=1.0f-0.1f*event.mouseWheelScroll.delta;
+//            view.zoom(zoom);
+//        }
+    }
+
+private:
+    sf::RectangleShape block;
+	sf::View view;
+	sf::Clock clock;
+
+	void handleKeyboardInput(){
+	    const float moveSpeed=200.0f;
+	    float deltaTime = clock.restart().asSeconds();
+	    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) view.move(-moveSpeed*deltaTime, 0);
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) view.move(moveSpeed*deltaTime, 0);
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) view.move(0, -moveSpeed*deltaTime);
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) view.move(0, moveSpeed*deltaTime);
+	}
 };
 
 

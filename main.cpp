@@ -1,6 +1,5 @@
 #include "classes.h"
 
-
 sf::Clock gameClock; // Zegar gry (aby gra dzialala niezaleznie od ilosci klatek)
 
 int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszArgument, int nCmdShow) { // Funkcja main bez uruchamiania konsoli
@@ -8,6 +7,8 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
 
     sf::RenderWindow window(sf::VideoMode(windowWidth, windowHeight), "Render Engine Project"); // Definicja okna
+
+//    window.setVerticalSyncEnabled(true); // vSync
 
     window.setFramerateLimit(60); // Limit klatek ustawiony na 60
 
@@ -23,6 +24,11 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
     RayRender rayrender; // Zadeklarowanie rzutowania cieni
     rayrender.init();
 
+    Editor editor{}; // Deklaracja edytora
+    editor.init(window); // Inicjalizacja edytora
+
+    enum class State {Editor, Game} gamestate=State::Game; // Stan gry (czy gracz jest w edytorze, czy w grze)
+
     sf::Mouse mouse;
     window.setMouseCursorGrabbed(true);
     window.setMouseCursorVisible(false);
@@ -35,20 +41,29 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
         while(window.pollEvent(event)){
             if(event.type==sf::Event::Closed) // Zamkniecie gry przy zamknieciu okna
                 window.close();
-            if((event.type==sf::Event::KeyPressed) && (event.key.code==sf::Keyboard::Escape)) // Zamkniecie gry przy wcisnieciu Escape
+            else if((event.type==sf::Event::KeyPressed) && (event.key.code==sf::Keyboard::Escape)) // Zamkniecie gry przy wcisnieciu Escape
                 window.close();
-        }
+            else if((event.type==sf::Event::KeyPressed) && (event.key.code==sf::Keyboard::Tab))
+                gamestate = gamestate == State::Game ? State::Editor : State::Game;
 
-        player.update(gameTime, mouse.getPosition(window)); // Aktualizacja pozycji gracza
-        mouse.setPosition(sf::Vector2i(window.getSize())/2, window); //Resetowanie myszy do srodka ekranu
-//       ^ nieplynny ruch, potencjalna przyszla zmiana na raw input!!
+            if (gamestate==State::Editor) editor.handleEvent(event);
+        }
 
         window.clear(); // Wyczyszczenie poprzedniej zawartosci okna
 
-//        map.draw(window);
-//        rayrender.drawRays(window, player, map);
-//        player.draw(window);
-        rayrender.render3D(window, player, map); // Rysowanie w perspektywie 3D
+        if(gamestate==State::Game){
+            window.setView(window.getDefaultView());
+            player.update(gameTime, mouse.getPosition(window)); // Aktualizacja pozycji gracza
+            rayrender.render3D(window, player, map); // Rysowanie w perspektywie 3D
+            mouse.setPosition(sf::Vector2i(window.getSize())/2, window); //Resetowanie myszy do srodka ekranu
+//       ^ nieplynny ruch, potencjalna przyszla zmiana na raw input!!
+
+        }
+        else{
+            editor.run(window, map);
+            map.draw(window);
+        }
+
 
         window.display(); // Wyswietlenie obrazu
     }
