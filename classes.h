@@ -150,7 +150,7 @@ public:
     }
 
     sf::Vector2f pos;
-    float angle;
+    float angle=0;
     sf::Texture tex;
 };
 
@@ -165,8 +165,9 @@ private:
 public:
     void init(){ // Tworzenie tekstury i sprite
 
-        floorBuffer.create(windowWidth, windowHeight);
+        floorBuffer.create(windowWidth, windowHeight/2);
         floorBufferSprite.setTexture(floorBuffer);
+        floorBufferSprite.setOrigin(0, -windowHeight/2);
 
         if (!wallTex.loadFromFile("brick.png")){
             cerr<<"Nie udalo sie zaladowac brick.png!";}
@@ -206,10 +207,10 @@ public:
         target.draw(sky, 4, sf::Quads, sf::RenderStates(&skyBox));
 
         //Problem z za duzym rozmiarem listy!!
-        uint8_t floorPixels[(size_t)windowWidth * (size_t)windowHeight * (size_t)4]{};
-        for(size_t y=windowHeight/2; y<windowHeight; y++){
+        uint8_t floorPixels[(size_t)windowWidth * (size_t)windowHeight * (size_t)2]{}; // * 4 / 2
+        for(size_t y=0; y<windowHeight/2; y++){
             sf::Vector2f rayDirLeft{direction-plane}, rayDirRight{direction+plane};
-            float rowDistance = cameraZ / ((float)y-windowHeight/2);
+            float rowDistance = cameraZ / ((float)y);
 
             sf::Vector2f floorStep = rowDistance*(rayDirRight-rayDirLeft)/windowWidth;
             sf::Vector2f floorPos = position+rowDistance*rayDirLeft;
@@ -332,7 +333,7 @@ public:
         block.setPosition((sf::Vector2f)mapPos * map.getBlockSize());
         window.draw(block);
 
-        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) map.setMapBlock(mapPos.x, mapPos.y, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) ? 0 : 1);
+//        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) map.setMapBlock(mapPos.x, mapPos.y, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) ? 0 : 1);
 
         window.setView(view);
     }
