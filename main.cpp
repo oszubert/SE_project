@@ -12,6 +12,8 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
     window.setFramerateLimit(60); // Limit klatek ustawiony na 60
 
+//  srednia fps
+    float avgFps = 1.0;
 
     sf::Image icon; // } Ikona programu
     icon.loadFromFile("icon.png"); // }
@@ -38,6 +40,10 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
         float gameTime=gameClock.restart().asSeconds(); // Zegar gry
 
+        // Wyswietla klatki na sekunde w tytule okna
+        avgFps = 0.9 * avgFps + 0.1 * (1/gameTime);
+        window.setTitle("Render Engine Project      ||      Fps: " + to_string(static_cast<int>(avgFps)));
+
         while(window.pollEvent(event)){
             if(event.type==sf::Event::Closed) // Zamkniecie gry przy zamknieciu okna
                 window.close();
@@ -53,8 +59,8 @@ int WINAPI WinMain(HINSTANCE hThisInstance, HINSTANCE hPrevInstance, LPSTR lpszA
 
         if(gamestate==State::Game){
             window.setView(window.getDefaultView());
-            player.update(gameTime, mouse.getPosition(window)); // Aktualizacja pozycji gracza
             rayrender.render3D(window, player, map); // Rysowanie w perspektywie 3D
+            player.update(gameTime, mouse.getPosition(window)); // Aktualizacja pozycji gracza
             mouse.setPosition(sf::Vector2i(window.getSize())/2, window); //Resetowanie myszy do srodka ekranu
 //       ^ nieplynny ruch, potencjalna przyszla zmiana na raw input!!
 

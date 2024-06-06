@@ -1,7 +1,7 @@
 #ifndef klasy
 #define klasy
 
-//#define _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
 
 #include <SFML/Graphics.hpp>
 #include <SFML/System.hpp>
@@ -12,6 +12,8 @@
 #include <vector>
 #include <iostream>
 #include <string>
+#include <cstdint>
+#include <filesystem>
 
 #include <windows.h>
 
@@ -114,11 +116,11 @@ public:
 
     void update(float gameTime, sf::Vector2i mousePos){ // Aktualizacja pozycji gracza
 
-        float rad=angle*M_PI/180.0f;
-
         float mouseSens = 12.5;
-        //angle += mouse.getPosition().x * gameTime * mouseSens;
         angle += (mousePos.x - windowWidth/2) * mouseSens * gameTime;
+        angle = fmod(angle, 360.0f);
+
+        float rad=angle*M_PI/180.0f;
 
 
 //        if(sf::Keyboard::isKeyPressed(sf::Keyboard::A)) angle-=rotSpeed*gameTime;
@@ -154,30 +156,31 @@ public:
     sf::Texture tex;
 };
 
-
 class RayRender{ // Rysowanie promieni
 private:
-    sf::Texture wallTex, skyBox;
-    sf::Image floorImage;
-
-    sf::Texture floorBuffer;
-    sf::Sprite floorBufferSprite;
+    sf::Texture wallTex, floorRender, skyBox;
+    uint8_t* floorTex; int floorTexSize;
+    sf::Sprite floorSprite;
 public:
     void init(){ // Tworzenie tekstury i sprite
-
-        floorBuffer.create(windowWidth, windowHeight/2);
-        floorBufferSprite.setTexture(floorBuffer);
-        floorBufferSprite.setOrigin(0, -windowHeight/2);
-
         if (!wallTex.loadFromFile("brick.png")){
             cerr<<"Nie udalo sie zaladowac brick.png!";}
         if(wallTex.getSize().x != wallTex.getSize().y){
             cerr<<"Tekstura brick.png nie jest kwadratem!";}
 
-        if (!floorImage.loadFromFile("floor.png")){
+        sf::Image floorTemp;
+        if (!floorTemp.loadFromFile("floor.png")){
             cerr<<"Nie udalo sie zaladowac floor.png!";}
-        if(floorImage.getSize().x != floorImage.getSize().y){
+        if(floorTemp.getSize().x != floorTemp.getSize().y){
             cerr<<"Tekstura floor.png nie jest kwadratem!";}
+        floorTexSize = floorTemp.getSize().x;
+        floorTex = new uint8_t[floorTexSize*floorTexSize*4];
+//        copy(floorTemp.getPixelsPtr(), floorTemp.getPixelsPtr() + sizeof(floorTemp.getPixelsPtr())/sizeof(uint8_t), floorTex);
+
+
+        floorRender.create((unsigned int)windowWidth, (unsigned int)windowHeight/2);
+        floorSprite.setTexture(floorRender);
+        floorSprite.setOrigin(0, -windowHeight/2);
 
 
         if (!skyBox.loadFromFile("skybox.png")) {
@@ -218,22 +221,22 @@ public:
             for(size_t x=0; x<windowWidth; x++){
                 sf::Vector2i cell{floorPos};
 
-                float texSize = floorImage.getSize().x;
-                sf::Vector2i texCoords{texSize*(floorPos-(sf::Vector2f)cell)};
-                texCoords.x &= (int)texSize-1;
-                texCoords.y &= (int)texSize-1;
-//                floorPixels.append(sf::Vertex(sf::Vector2f(x,y), texCoords));
-                sf::Color color = floorImage.getPixel(texCoords.x, texCoords.y);
-                floorPixels[(x+y*(size_t)windowWidth)*4 + 0] = color.r;
-                floorPixels[(x+y*(size_t)windowWidth)*4 + 1] = color.g;
-                floorPixels[(x+y*(size_t)windowWidth)*4 + 2] = color.b;
-                floorPixels[(x+y*(size_t)windowWidth)*4 + 3] = color.a;
+//                float texSize = floorImage.getSize().x;
+                sf::Vector2i texCoords{(float)floorTexSize*(floorPos-(sf::Vector2f)cell)};
+                texCoords.x &= floorTexSize-1;
+                texCoords.y &= floorTexSize-1;
+//                sf::Color color = floorImage.getPixel(texCoords.x, texCoords.y);
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 0] = floorTex[(texCoords.x +texCoords.y*floorTexSize)*4 +0];
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 1] = floorTex[(texCoords.x +texCoords.y*floorTexSize)*4 +1];
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 2] = floorTex[(texCoords.x +texCoords.y*floorTexSize)*4 +2];
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 3] = floorTex[(texCoords.x +texCoords.y*floorTexSize)*4 +3];
+//                copy(*(floorTex +(texCoords.x+texCoords.y*floorTexSize)*4), *(floorTex +(texCoords.x+texCoords.y*floorTexSize)*4 +3), &(floorPixels +(x+y*(size_t)windowWidth)*4));
 
                 floorPos += floorStep;
             }
         }
-        floorBuffer.update(floorPixels);
-        target.draw(floorBufferSprite);
+        floorRender.update(floorPixels);
+        target.draw(floorSprite);
 
 
         sf::VertexArray walls{sf::Lines};
