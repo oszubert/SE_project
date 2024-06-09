@@ -14,6 +14,11 @@
 #include <string>
 #include <cstdint>
 #include <filesystem>
+#include <fstream>
+#include <ios>
+
+#include "imgui.h" // Biblioteka GUI
+#include "ImGuiFileDialog.h" // Plik dialogowy
 
 #include <windows.h>
 
@@ -45,7 +50,7 @@ private:
     MapLevel level;
     float blockSize;
 public:
-//    Map(float blockSize, int width, int height) : blockSize(blockSize), level(height, vector<sf::Color>(width, sf::Color::Black)) {}
+    Map(float blockSize) : blockSize(blockSize), level() {}
     Map(float blockSize, int width, int height) : blockSize(blockSize), level(height, vector<int>(width, 0)) {}
     Map(float blockSize, const string &mapfile): blockSize(blockSize){
         sf::Image source;
@@ -84,6 +89,48 @@ public:
             }
         }
     }
+
+        void load(const filesystem::path &path) {
+            ifstream in{path, ios::in | ios::binary};
+            if (!in.is_open()) {
+                cerr << "Nie zaladowano pliku \"" << path << "\" do odczytu" << endl;
+            }
+
+            size_t w, h;
+            in.read(reinterpret_cast<char *>(&w), sizeof(w));
+            in.read(reinterpret_cast<char *>(&h), sizeof(h));
+
+            level=vector(h, vector(w, 0));
+            for(size_t y=0; y<level.size(); y++){
+                for(size_t x=0; x<level[y].size(); x++){
+                    in.read(reinterpret_cast<char *>(&level[y][x]), sizeof(level[y][x]));
+                }
+            }
+        }
+
+    void save(const filesystem::path &path) const {
+        ofstream out{path, ios::out | ios::binary};
+        if (!out.is_open()) {
+            cerr << "Nie udalo sie zaladowac pliku \"" << path << "\" do zapisu" << endl;
+        }
+
+        if (level.empty()) {
+            return;
+        }
+
+        size_t h=level.size();
+        size_t w=level[0].size();
+        out.write(reinterpret_cast<const char *>(&w), sizeof(w));
+        out.write(reinterpret_cast<const char *>(&h), sizeof(h));
+
+        for(size_t y=0; y<level.size(); y++) {
+            for(size_t x=0; x<level[y].size(); x++) {
+                out.write(reinterpret_cast<const char *>(&level[y][x]), sizeof(level[y][x]));
+            }
+        }
+    }
+
+
     void setMapBlock(int x, int y, int value){
         if (y>=0 && y<level.size() && x>=0 && x<level[y].size()) level[y][x]=value;
     }
@@ -158,29 +205,27 @@ public:
 
 class RayRender{ // Rysowanie promieni
 private:
-    sf::Texture wallTex, floorRender, skyBox;
-    uint8_t* floorTex; int floorTexSize;
-    sf::Sprite floorSprite;
+    sf::Texture wallTex, skyBox;
+    sf::Image floorImage;
+
+    sf::Texture floorBuffer;
+    sf::Sprite floorBufferSprite;
 public:
     void init(){ // Tworzenie tekstury i sprite
+
+        floorBuffer.create(windowWidth, windowHeight/2);
+        floorBufferSprite.setTexture(floorBuffer);
+        floorBufferSprite.setOrigin(0, -windowHeight/2);
+
         if (!wallTex.loadFromFile("brick.png")){
             cerr<<"Nie udalo sie zaladowac brick.png!";}
         if(wallTex.getSize().x != wallTex.getSize().y){
             cerr<<"Tekstura brick.png nie jest kwadratem!";}
 
-        sf::Image floorTemp;
-        if (!floorTemp.loadFromFile("floor.png")){
+        if (!floorImage.loadFromFile("floor.png")){
             cerr<<"Nie udalo sie zaladowac floor.png!";}
-        if(floorTemp.getSize().x != floorTemp.getSize().y){
+        if(floorImage.getSize().x != floorImage.getSize().y){
             cerr<<"Tekstura floor.png nie jest kwadratem!";}
-        floorTexSize = floorTemp.getSize().x;
-        floorTex = new uint8_t[floorTexSize*floorTexSize*4];
-//        copy(floorTemp.getPixelsPtr(), floorTemp.getPixelsPtr() + sizeof(floorTemp.getPixelsPtr())/sizeof(uint8_t), floorTex);
-
-
-        floorRender.create((unsigned int)windowWidth, (unsigned int)windowHeight/2);
-        floorSprite.setTexture(floorRender);
-        floorSprite.setOrigin(0, -windowHeight/2);
 
 
         if (!skyBox.loadFromFile("skybox.png")) {
@@ -221,22 +266,22 @@ public:
             for(size_t x=0; x<windowWidth; x++){
                 sf::Vector2i cell{floorPos};
 
-//                float texSize = floorImage.getSize().x;
-                sf::Vector2i texCoords{(float)floorTexSize*(floorPos-(sf::Vector2f)cell)};
-                texCoords.x &= floorTexSize-1;
-                texCoords.y &= floorTexSize-1;
-//                sf::Color color = floorImage.getPixel(texCoords.x, texCoords.y);
-                floorPixels[(x+y*(size_t)windowWidth)*4 + 0] = floorTex[(texCoords.x +texCoords.y*floorTexSize)*4 +0];
-                floorPixels[(x+y*(size_t)windowWidth)*4 + 1] = floorTex[(texCoords.x +texCoords.y*floorTexSize)*4 +1];
-                floorPixels[(x+y*(size_t)windowWidth)*4 + 2] = floorTex[(texCoords.x +texCoords.y*floorTexSize)*4 +2];
-                floorPixels[(x+y*(size_t)windowWidth)*4 + 3] = floorTex[(texCoords.x +texCoords.y*floorTexSize)*4 +3];
-//                copy(*(floorTex +(texCoords.x+texCoords.y*floorTexSize)*4), *(floorTex +(texCoords.x+texCoords.y*floorTexSize)*4 +3), &(floorPixels +(x+y*(size_t)windowWidth)*4));
+                float texSize = floorImage.getSize().x;
+                sf::Vector2i texCoords{texSize*(floorPos-(sf::Vector2f)cell)};
+                texCoords.x &= (int)texSize-1;
+                texCoords.y &= (int)texSize-1;
+//                floorPixels.append(sf::Vertex(sf::Vector2f(x,y), texCoords));
+                sf::Color color = floorImage.getPixel(texCoords.x, texCoords.y);
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 0] = color.r;
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 1] = color.g;
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 2] = color.b;
+                floorPixels[(x+y*(size_t)windowWidth)*4 + 3] = color.a;
 
                 floorPos += floorStep;
             }
         }
-        floorRender.update(floorPixels);
-        target.draw(floorSprite);
+        floorBuffer.update(floorPixels);
+        target.draw(floorBufferSprite);
 
 
         sf::VertexArray walls{sf::Lines};
@@ -326,41 +371,94 @@ public:
     }
 
 	void run(sf::RenderWindow &window, Map &map){
+        if(ImGui::BeginMainMenuBar()) {
+            if(ImGui::BeginMenu("Plik")){
+                if(ImGui::MenuItem("Otworz")){
+                    ImGuiFileDialog::Instance()->OpenDialog("OpenDialog", "Otworz", ".map");
+                }
 
-        handleKeyboardInput();
+                if(ImGui::MenuItem("Zapisz")){
+                    if(savedFileName.empty()){
+                        ImGuiFileDialog::Instance()->OpenDialog("SaveDialog", "Zapisz", ".map");
+                    }
+                    else{
+                        map.save(savedFileName);
+                    }
+                }
+
+                if(ImGui::MenuItem("Zapisz jako")){
+                    ImGuiFileDialog::Instance()->OpenDialog("SaveDialog", "Zapisz jako", ".map");
+                }
+
+                ImGui::EndMenu();
+            }
+            ImGui::EndMainMenuBar();
+        }
+
+                if(ImGuiFileDialog::Instance()->Display("SaveDialog")){
+            if(ImGuiFileDialog::Instance()->IsOk()){
+                savedFileName=ImGuiFileDialog::Instance()->GetFilePathName();
+                map.save(savedFileName);
+            }
+
+            ImGuiFileDialog::Instance()->Close();
+        }
+
+        if(ImGuiFileDialog::Instance()->Display("OpenDialog")){
+            if(ImGuiFileDialog::Instance()->IsOk()) {
+                savedFileName=ImGuiFileDialog::Instance()->GetFilePathName();
+                map.load(savedFileName);
+            }
+            ImGuiFileDialog::Instance()->Close();
+        }
 
         sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-        sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
-        sf::Vector2i mapPos = (sf::Vector2i)(worldPos / map.getBlockSize());
-        block.setSize(sf::Vector2f(map.getBlockSize(), map.getBlockSize()));
-        block.setPosition((sf::Vector2f)mapPos * map.getBlockSize());
-        window.draw(block);
 
-//        if(sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) map.setMapBlock(mapPos.x, mapPos.y, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) ? 0 : 1);
+        if(sf::Mouse::isButtonPressed(sf::Mouse::Right)){
+            if(isFirstMouse){
+                lastMousePos=mousePos;
+                isFirstMouse=false;
+            }
+            else{
+                sf::Vector2i mouseDelta=mousePos-lastMousePos;
+                view.setCenter(view.getCenter()-(sf::Vector2f)mouseDelta);
+                sf::Mouse::setPosition(lastMousePos, window);
+            }
+            window.setMouseCursorVisible(false);
+        }
+        else{
+            isFirstMouse = true;
+            window.setMouseCursorVisible(true);
+        }
 
+        if(!ImGui::GetIO().WantCaptureMouse){
+            sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+            sf::Vector2f worldPos = window.mapPixelToCoords(mousePos);
+            sf::Vector2i mapPos = (sf::Vector2i)(worldPos / map.getBlockSize());
+            block.setSize(sf::Vector2f(map.getBlockSize(), map.getBlockSize()));
+            block.setPosition((sf::Vector2f)mapPos * map.getBlockSize());
+            window.draw(block);
+
+            if(sf::Mouse::isButtonPressed(sf::Mouse::Left))
+                map.setMapBlock(mapPos.x, mapPos.y, sf::Keyboard::isKeyPressed(sf::Keyboard::LShift) ? 0 : 1);
+        }
         window.setView(view);
     }
 
 	void handleEvent(const sf::Event &event){
-//        if(event.type==sf::Event::MouseWheelScrolled){
-//            float zoom=1.0f-0.1f*event.mouseWheelScroll.delta;
-//            view.zoom(zoom);
-//        }
+        if(event.type==sf::Event::MouseWheelScrolled){
+            float zoom=1.0f-0.1f*event.mouseWheelScroll.delta;
+            view.zoom(zoom);
+        }
     }
 
 private:
+    bool isFirstMouse{};
+    sf::Vector2i lastMousePos;
     sf::RectangleShape block;
 	sf::View view;
 	sf::Clock clock;
-
-	void handleKeyboardInput(){
-	    const float moveSpeed=200.0f;
-	    float deltaTime = clock.restart().asSeconds();
-	    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) view.move(-moveSpeed*deltaTime, 0);
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) view.move(moveSpeed*deltaTime, 0);
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) view.move(0, -moveSpeed*deltaTime);
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) view.move(0, moveSpeed*deltaTime);
-	}
+	string savedFileName;
 };
 
 
